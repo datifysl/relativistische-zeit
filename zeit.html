@@ -1,114 +1,125 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Relativistische Zeit v4</title>
-<style>
-body {
-    font-family: -apple-system, sans-serif;
-    text-align: center;
-    background: #111;
-    color: white;
-    margin: 0;
-    padding: 30px;
-}
-.card {
-    background: #1e1e1e;
-    padding: 25px;
-    border-radius: 20px;
-    margin-bottom: 25px;
-}
-.speed {
-    font-size: 28px;
-}
-.total, .moment, .days {
-    font-size: 38px;
-    font-weight: bold;
-}
-.button {
-    padding: 12px 25px;
-    font-size: 16px;
-    border-radius: 12px;
-    border: none;
-    background: #ff4757;
-    color: white;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relativitäts-Zeitdilatation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; }
+        .data-box {
+            background: #fff;
+            padding: 15px 25px;
+            margin: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            width: 300px;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-top: 15px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
 </head>
 <body>
+    <h1>Relativitäts-Zeitdilatation</h1>
 
-<h2> Relativistisch gesparte Zeit</h2>
+    <div class="data-box">
+        <p>Aktuelle Geschwindigkeit: <span id="speed">0</span> km/h</p>
+    </div>
 
-<div class="card">
-    <div>Geschwindigkeit</div>
-    <div class="speed"><span id="speed">0</span> km/h</div>
-</div>
+    <div class="data-box">
+        <p>Zeitdifferenz (Δt) für dich: <span id="deltaTime">0</span> s</p>
+    </div>
 
-<div class="card">
-    <div>Momentaner Zeitverlust</div>
-    <div class="moment"><span id="moment">0 · 10^0</span> Sekunden</div>
-</div>
+    <div class="data-box">
+        <p>Kumulative verlorene Zeit: <span id="totalTime">0</span> s</p>
+    </div>
 
-<div class="card">
-    <div>Gesamt gesparte Zeit</div>
-    <div class="total"><span id="total">0 · 10^0</span> Sekunden</div>
-</div>
+    <button id="resetBtn">Reset</button>
 
-<div class="card">
-    <div>Simulation: Wie viele Tage jünger nach 100 Jahren</div>
-    <div class="days"><span id="days">0,000 · 10^0</span> Tage</div>
-</div>
+    <script>
+        // Konstanten
+        const c = 299792458; // Lichtgeschwindigkeit in m/s
 
-<button onclick="reset()">Reset</button>
+        let totalTime = 0;
+        let lastTimestamp = null;
+        let lastPosition = null;
 
-<script>
-const c = 299792458; // m/s
-let totalLoss = 0;
-let lastTime = Date.now();
+        const speedDisplay = document.getElementById("speed");
+        const deltaTimeDisplay = document.getElementById("deltaTime");
+        const totalTimeDisplay = document.getElementById("totalTime");
+        const resetBtn = document.getElementById("resetBtn");
 
-function formatScientific(num) {
-    if (num === 0) return "0 · 10^0";
-    let exponent = Math.floor(Math.log10(Math.abs(num)));
-    let mantissa = num / Math.pow(10, exponent);
-    return mantissa.toFixed(3).replace('.', ',') + " · 10^" + exponent;
-}
+        // Reset Funktion
+        resetBtn.addEventListener("click", () => {
+            totalTime = 0;
+            lastTimestamp = null;
+            lastPosition = null;
+            speedDisplay.textContent = "0";
+            deltaTimeDisplay.textContent = "0";
+            totalTimeDisplay.textContent = "0";
+        });
 
-function update(position) {
-    let now = Date.now();
-    let dt = (now - lastTime) / 1000;
-    lastTime = now;
+        // GPS und Berechnung
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition(position => {
+                const timestamp = position.timestamp;
+                const coords = position.coords;
 
-    let v = position.coords.speed || 0; // m/s
-    let lossMoment = (v*v)/(2*c*c) * dt;
-    totalLoss += lossMoment;
+                let speed = 0;
+                if (coords.speed != null) {
+                    speed = coords.speed * 3.6; // m/s -> km/h
+                } else if (lastPosition) {
+                    // Berechne Geschwindigkeit zwischen zwei Punkten
+                    const dt = (timestamp - lastTimestamp) / 1000; // s
+                    const dx = coords.latitude - lastPosition.latitude;
+                    const dy = coords.longitude - lastPosition.longitude;
+                    const dz = (coords.altitude || 0) - (lastPosition.altitude || 0);
+                    const distance = Math.sqrt(dx*dx + dy*dy + dz*dz) * 111139; // grobe Distanz in Meter
+                    speed = (distance / dt) * 3.6; // km/h
+                }
 
-    let kmh = v * 3.6;
+                // Zeitdilatation berechnen (special relativity)
+                const v = speed / 3.6; // km/h -> m/s
+                const gamma = 1 / Math.sqrt(1 - (v*v)/(c*c));
+                const deltaT = (1 - 1/gamma); // Zeitdifferenz pro Sekunde
+                
+                // Kumulative Zeit
+                if (lastTimestamp) {
+                    const dt = (timestamp - lastTimestamp) / 1000; // s
+                    totalTime += deltaT * dt;
+                }
 
-    // Update Geschwindigkeit
-    document.getElementById("speed").innerText = kmh.toFixed(2).replace('.', ',');
+                // Anzeigen
+                speedDisplay.textContent = speed.toFixed(2);
+                deltaTimeDisplay.textContent = deltaT.toExponential(3);
+                totalTimeDisplay.textContent = totalTime.toExponential(3);
 
-    // Momentaner Verlust
-    document.getElementById("moment").innerText = formatScientific(lossMoment);
+                lastTimestamp = timestamp;
+                lastPosition = coords;
 
-    // Gesamtverlust
-    document.getElementById("total").innerText = formatScientific(totalLoss);
-
-    // Simulation 100 Jahre
-    const seconds100Years = 100 * 365.25 * 24 * 3600;
-    let total100Y = (v*v)/(2*c*c) * seconds100Years;
-    let days100Y = total100Y / 86400; // in Tagen
-    document.getElementById("days").innerText = formatScientific(days100Y);
-}
-
-function reset() {
-    totalLoss = 0;
-}
-
-navigator.geolocation.watchPosition(update,
-    err => alert("GPS aktivieren!"),
-    { enableHighAccuracy: true }
-);
-</script>
-
+            }, err => {
+                alert("Fehler beim Abrufen des Standorts: " + err.message);
+            }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 });
+        } else {
+            alert("Geolocation wird von deinem Browser nicht unterstützt.");
+        }
+    </script>
 </body>
 </html>
